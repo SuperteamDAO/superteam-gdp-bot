@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import { request } from 'undici';
-import { Client, Intents } from 'discord.js';
+import cron from 'node-cron';
+import client from './client';
 import logger from './utils/logger';
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
 const token = process.env.DISCORD_TOKEN;
 
 if (!token) {
@@ -11,20 +11,10 @@ if (!token) {
 }
 
 client.on('ready', () => {
- console.log(`Logged in as ${client?.user?.tag}!`);
+ logger.info(`Logged in as ${client?.user?.tag}!`);
 });
 
-client.on('interactionCreate', async interaction => {
- if (!interaction.isCommand()) return;
-
- if (interaction.commandName === 'ping') {
-  await interaction.reply('Pong!');
- }
-});
-
-client.login(token);
-
-const getGdp = async (): Promise<number> => {
+const getGdp = async (): Promise<string> => {
  const {
   body,
  } = await request('https://opensheet.elk.sh/1I6EEV3RTTPTI5ugX3IWvkjx39pjSym9tk4DBeoXyGys/Bounties%20Paid');
@@ -37,11 +27,42 @@ const getGdp = async (): Promise<number> => {
   .filter((x: string) => !!x);
 
  const gdp = earnings_arr.reduce((acc:string, curr:string) => acc + Number(curr), 0);
+ const formatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
 
- return gdp;
+  // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+  // minimumFractionDigits: 0,
+  maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+ });
+
+ return formatter.format(gdp);
 };
 
-(async () => {
+const setGdpNickName = async () => {
  const gdp = await getGdp();
- logger.info(`GDP: ${gdp}`);
-})();
+
+ const superteam_guild_id = process.env.GUILD_ID as string;
+ const guild = client.guilds.resolve(superteam_guild_id);
+
+ if (!guild) {
+  logger.error('No guild found');
+  return;
+ }
+
+ guild.me?.setNickname(gdp);
+ logger.info(`Done setting nickname to ${gdp}`);
+
+ //  const channel = guild.channels.cache.find(chnl => chnl.name.includes('CGDP'));
+
+ //  if (channel) {
+ // channel.setName(`CGDP: ${gdp}`);
+ //  } else {
+ //   logger.info('Channel Doesn\'t exist');
+ //  }
+};
+
+cron.schedule('* * * * *', async () => {
+ await client.login(token);
+ await setGdpNickName();
+});
