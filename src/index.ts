@@ -62,7 +62,7 @@ const setGdp = async () => {
  }
 };
 
-cron.schedule('* * * * *', async () => {
+cron.schedule('*/30 * * * *', async () => {
  await client.login(token);
  await setGdp();
 });
