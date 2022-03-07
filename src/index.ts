@@ -26,7 +26,7 @@ const getGdp = async (): Promise<string> => {
    ?.replace(',', ''))
   .filter((x: string) => !!x);
 
- const gdp = earnings_arr.reduce((acc:string, curr:string) => acc + Number(curr), 0);
+ const gdp = earnings_arr.reduce((acc: string, curr: string) => acc + Number(curr), 0);
  const formatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -39,7 +39,7 @@ const getGdp = async (): Promise<string> => {
  return formatter.format(gdp);
 };
 
-const setGdpNickName = async () => {
+const setGdp = async () => {
  const gdp = await getGdp();
 
  const superteam_guild_id = process.env.GUILD_ID as string;
@@ -50,19 +50,19 @@ const setGdpNickName = async () => {
   return;
  }
 
- guild.me?.setNickname(gdp);
- logger.info(`Done setting nickname to ${gdp}`);
+ //  guild.me?.setNickname(gdp);
+ //  logger.info(`Done setting nickname to ${gdp}`);
 
- //  const channel = guild.channels.cache.find(chnl => chnl.name.includes('CGDP'));
+ const channel = guild.channels.cache.find(chnl => chnl.name.includes('GDP:'));
 
- //  if (channel) {
- // channel.setName(`CGDP: ${gdp}`);
- //  } else {
- //   logger.info('Channel Doesn\'t exist');
- //  }
+ if (channel) {
+  channel.setName(`GDP: ${gdp}`);
+ } else {
+  logger.info('Channel Doesn\'t exist');
+ }
 };
 
 cron.schedule('* * * * *', async () => {
  await client.login(token);
- await setGdpNickName();
+ await setGdp();
 });
