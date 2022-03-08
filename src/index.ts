@@ -56,13 +56,14 @@ const setGdp = async () => {
  const channel = guild.channels.cache.find(chnl => chnl.name.includes('GDP:'));
 
  if (channel) {
-  channel.setName(`GDP: ${gdp}`);
+  channel.setName(`📈 | GDP: ${gdp}`);
+  logger.info('Updated channel name');
  } else {
   logger.info('Channel Doesn\'t exist');
  }
 };
 
-cron.schedule('*/30 * * * *', async () => {
+cron.schedule('* * * * *', async () => {
  await client.login(token);
  await setGdp();
 });
