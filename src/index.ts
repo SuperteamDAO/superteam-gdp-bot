@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { request } from 'undici';
 import cron from 'node-cron';
+import Big from 'big.js';
 import client from './client';
 import logger from './utils/logger';
 
@@ -24,7 +25,19 @@ const getGdp = async (): Promise<string> => {
  const earnings_arr = superteam_earnings
   .map((x: Record<string, string>) => x['Total Earnings USD']
    ?.replace(',', ''))
-  .filter((x: string) => !!x);
+  .filter((x: string) => !!x)
+  .map((x: string) => {
+   try {
+    if (x.includes('$')) {
+     x = x.replace('$', '');
+    }
+    return Big(x);
+   } catch (err) {
+    logger.info(x);
+    logger.error(err);
+    return Big(0);
+   }
+  });
 
  const gdp = earnings_arr.reduce((acc: string, curr: string) => acc + Number(curr), 0);
  const formatter = new Intl.NumberFormat('en-US', {
@@ -50,8 +63,10 @@ const setGdp = async () => {
   return;
  }
 
- //  guild.me?.setNickname(gdp);
- //  logger.info(`Done setting nickname to ${gdp}`);
+ logger.info(gdp);
+
+ guild.me?.setNickname(gdp);
+ logger.info(`Done setting nickname to ${gdp}`);
 
  const channel = guild.channels.cache.find(chnl => chnl.name.includes('GDP:'));
 
@@ -67,3 +82,7 @@ cron.schedule('*/30 * * * *', async () => {
  await client.login(token);
  await setGdp();
 });
+
+(async () => {
+ await setGdp();
+})();
