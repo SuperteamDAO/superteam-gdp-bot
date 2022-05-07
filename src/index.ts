@@ -39,7 +39,7 @@ const getGdp = async (): Promise<string> => {
    }
   });
 
- const gdp = earnings_arr.reduce((acc: string, curr: string) => acc + Number(curr), 0);
+ const gdp = earnings_arr.reduce((acc: Big, curr: Big) => curr.add(acc), 0);
  const formatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -82,7 +82,3 @@ cron.schedule('*/30 * * * *', async () => {
  await client.login(token);
  await setGdp();
 });
-
-(async () => {
- await setGdp();
-})();
