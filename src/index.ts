@@ -65,8 +65,8 @@ const setGdp = async () => {
 
  logger.info(gdp);
 
- guild.me?.setNickname(gdp);
- logger.info(`Done setting nickname to ${gdp}`);
+ //  guild.me?.setNickname(gdp);
+ //  logger.info(`Done setting nickname to ${gdp}`);
 
  const channel = guild.channels.cache.find(chnl => chnl.name.includes('GDP:'));
 
