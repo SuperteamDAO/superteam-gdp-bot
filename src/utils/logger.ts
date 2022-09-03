@@ -12,12 +12,6 @@ const getLogger = () => (isDevelopment ? pino({
 }) : pino({
  level: process.env.PROD_LOG_LEVEL,
  timestamp: pino.stdTimeFunctions.isoTime,
- transport: {
-  target: 'pino-pretty',
-  options: {
-   colorize: true,
-  },
- },
 }));
 
 // useMetadata: true,
