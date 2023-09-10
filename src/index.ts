@@ -1,90 +1,41 @@
 import 'dotenv/config';
-import { request } from 'undici';
-import cron from 'node-cron';
-import Big from 'big.js';
 import client from './client';
 import logger from './utils/logger';
+import gdpDiscordQueue from "./queue";
+import { Job, DoneCallback } from 'bull';
+import { setGdp, getGdp } from './helpers';
 
-const getGdp = async (): Promise<string> => {
-  const {
-    body,
-  } = await request('https://opensheet.elk.sh/1I6EEV3RTTPTI5ugX3IWvkjx39pjSym9tk4DBeoXyGys/Bounties%20Paid');
+// set gdp on discord channel
+gdpDiscordQueue.process(async (job: Job, done: DoneCallback) => {
+  // job.data contains the custom data passed when the job was created
+  // job.id contains id of this job.
 
-  const superteam_earnings = await body.json();
-
-  const earnings_arr = superteam_earnings
-    .map((x: Record<string, string>) => x['Total Earnings USD']
-      ?.replace(',', ''))
-    .filter((x: string) => !!x)
-    .map((x: string) => {
-      try {
-        if (x.includes('$')) {
-          x = x.replace('$', '');
-        }
-        return Big(x);
-      } catch (err) {
-        logger.info(x);
-        logger.error(err);
-        return Big(0);
-      }
-    });
-
-  const gdp = earnings_arr.reduce((acc: Big, curr: Big) => curr.add(acc), 0);
-  const formatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-
-    // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
-    // minimumFractionDigits: 0,
-    maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
-  });
-
-  return formatter.format(gdp);
-};
-
-const setGdp = async () => {
-  const gdp = await getGdp();
-
-  const superteam_guild_id = process.env.GUILD_ID as string;
-  const guild = await client.guilds.cache.get(superteam_guild_id);
-
-  if (!guild) {
-    logger.error('No guild found');
-    return;
-  }
-
-  logger.info(gdp);
-
-  //  guild.me?.setNickname(gdp);
-  //  logger.info(`Done setting nickname to ${gdp}`);
-
-  const channel = guild.channels.cache.find(chnl => chnl.name.includes('GDP:'));
-
-  if (channel) {
-    channel.setName(`📈 | GDP: ${gdp}`);
-    logger.info(`📈 | GDP: ${gdp}`);
-    logger.info('Updated channel name');
-  } else {
-    logger.info('Channel Doesn\'t exist');
-  }
-};
-
-cron.schedule('*/30 * * * *', async () => {
+  // login
   const token = process.env.DISCORD_TOKEN;
-
   if (!token) {
     logger.error('No token found');
-    return;
+    done(new Error('No token found'));
   }
 
-  await client.login(token);
+  try {
+    await client.login(token);
+    // report progress on redis
+    job.progress(15);
+    const gdp = await getGdp();
+    job.progress(50);
+    const jobResult = await setGdp(gdp, client);
+    job.progress(100);
+    // call done when finished
+    done(null, { ...jobResult, status: 'Setting up GDP Succeeded' });
+  } catch (e) {
+    // give an error if error
+    done(e);
+  }
 
-  client.on('ready', async () => {
-    logger.info(`Logged in as ${client?.user?.tag}!`);
-    try {
-      await setGdp();
-    } catch (err) {
-      console.log(err)
-    }
-  });
+  // If the job throws an unhandled exception it is also handled correctly
+  throw new Error('some unexpected error');
 });
+
+// schedule process to execute processGdp 
+// at every 1 Hour (10 mins * 2 times is discord rate limit)
+gdpDiscordQueue.add(null, { repeat: { cron: '*/10 * * * *' } });
